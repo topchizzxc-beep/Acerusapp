@@ -162,9 +162,23 @@
         }
 
         // Функция нажатия кнопки }
-        function takeTask(id) {
-            const btn = document.getElementById(`btn-${id}`);
-            if (!btn) return;
+               function takeTask(id) {
+            // Больше не нужно менять текст кнопки вручную, 
+            // потому что приложение сразу закроется и откроет форму оплаты.
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                
+                // 🚀 Отправляем боту команду на покупку (например: pay_1, pay_2)
+                tg.sendData(`pay_${id}`); 
+                
+                // Включаем легкую вибрацию на телефоне для красоты
+                tg.HapticFeedback.notificationOccurred('success');
+                
+                // Закрываем мини-приложение, чтобы пользователь увидел счет
+                tg.close();
+            }
+        }
+
             
             // Находим данные о заказе по его id
             const currentTask = tasks.find(t => t.id === id);
