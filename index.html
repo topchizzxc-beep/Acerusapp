@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acerus IT</title>
+    <!-- Скрипт Telegram -->
+    <script src="https://telegram.org"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #000000;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
+        }
+        .header {
+            text-align: left;
+            margin-bottom: 28px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #1c1c1e;
+        }
+        .header h1 {
+            font-size: 24px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin: 0 0 6px 0;
+            color: #ffffff;
+        }
+        .header .subtitle {
+            color: #555555;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+        .task-card {
+            background-color: #0a0a0b;
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            border: 1px solid #1c1c1e;
+            transition: all 0.2s ease;
+        }
+        .task-card:active {
+            border-color: #444444;
+            background-color: #0e0e10;
+        }
+        .task-title {
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: -0.2px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+        .task-desc {
+            font-size: 13px;
+            color: #888888;
+            line-height: 1.5;
+            margin-bottom: 18px;
+        }
+        .task-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .task-price {
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+            border: 1px solid #222222;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background-color: #0a0a0b;
+        }
+        .btn-take {
+            background-color: #ffffff;
+            color: #000000;
+            border: 1px solid #ffffff;
+            padding: 8px 18px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-take:active {
+            background-color: #000000;
+            color: #ffffff;
+        }
+        .btn-take.taken {
+            background-color: #000000;
+            color: #444444;
+            border-color: #1c1c1e;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>ACERUS IT</h1>
+        <div class="subtitle">DEVELOPMENT TASK BOARD</div>
+    </div>
+
+    <!-- Область, куда JS вставит все задания -->
+    <div id="tasks-list"></div>
+
+    <script>
+        // Проверяем, запущен ли скрипт ТГ
+        if (window.Telegram && window.Telegram.WebApp) {
+            window.Telegram.WebApp.expand();
+        }
+
+        // 💰 Вот твой массив данных с функциями и ценами!
+        const tasks = [
+            {
+                id: 1,
+                title: "DEVELOP / TELEGRAM BOT",
+                desc: "Разработка асинхронного бота-визитки на Python (Aiogram 2.15) для кофейни.",
+                price: "1 500 ₽"
+            },
+            {
+                id: 2,
+                title: "DESIGN / UI GRAPHICS",
+                desc: "Создание минималистичного концепта и узора-паттерна в Figma для IT-бренда.",
+                price: "800 ₽"
+            },
+            {
+                id: 3,
+                title: "AI / TEXT AUTOMATION",
+                desc: "Интеграция нейросети для генерации продающих карточек товаров на маркетплейсах.",
+                price: "400 ₽"
+            }
+        ];
+
+        // Функция рендеринга (вывода на экран)
+        function renderTasks() {
+            const listContainer = document.getElementById('tasks-list');
+            if (!listContainer) return;
+            
+            listContainer.innerHTML = '';
+
+            tasks.forEach(task => {
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                card.innerHTML = `
+                    <div class="task-title">${task.title}</div>
+                    <div class="task-desc">${task.desc}</div>
+                    <div class="task-footer">
+                        <div class="task-price">${task.price}</div>
+                        <button class="btn-take" id="btn-${task.id}" onclick="takeTask(${task.id})">TAKE ORDER</button>
+                    </div>
+                `;
+                listContainer.appendChild(card);
+            });
+        }
+
+        // Функция нажатия кнопки }
+        function takeTask(id) {
+            const btn = document.getElementById(`btn-${id}`);
+            if (!btn) return;
+            
+            // Находим данные о заказе по его id
+            const currentTask = tasks.find(t => t.id === id);
+            
+            btn.innerText = 'IN PROGRESS';
+            btn.className = 'btn-take taken';
+            btn.disabled = true;
+            
+            // 🚀 ГЛАВНАЯ ФИШКА: Отправляем боту текст о том, какой заказ взят
+            if (window.Telegram && window.Telegram.WebApp) {
+                const tg = window.Telegram.WebApp;
+                
+                // Передаем боту строку с названием заказа и ценой
+                tg.sendData(`Взят заказ: "${currentTask.title}" за ${currentTask.price}`);
+                
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.close(); // Автоматически закрываем мини-приложение после выбора
+            }
+        }
+
+        // Запуск вывода при загрузке страницы
+        document.addEventListener('DOMContentLoaded', renderTasks);
+    </script>
+</body>
+</html>
