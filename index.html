@@ -91,12 +91,6 @@
             background-color: #000000;
             color: #ffffff;
         }
-        .btn-take.taken {
-            background-color: #000000;
-            color: #444444;
-            border-color: #1c1c1e;
-            cursor: not-allowed;
-        }
     </style>
 </head>
 <body>
@@ -106,17 +100,17 @@
         <div class="subtitle">DEVELOPMENT TASK BOARD</div>
     </div>
 
-    <!-- Область, куда JS вставит все задания -->
+    <!-- Место для автоматического вывода твоих задач -->
     <div id="tasks-list"></div>
 
     <script>
-        // Проверяем, запущен ли скрипт ТГ
-        if (window.Telegram && window.Telegram.WebApp) {
-            window.Telegram.WebApp.expand();
+        // Инициализируем Telegram Web App
+        const tg = window.Telegram.WebApp;
+        if (tg) {
+            tg.expand();
         }
 
-        // 💰 Вот твой массив данных с функциями и ценами!
-                 // Твои заказы с новыми ценами по 300-450 рублей
+        // Твой список задач с ценами
         const tasks = [
             {
                 id: 1,
@@ -138,12 +132,10 @@
             }
         ];
 
-
-        // Функция рендеринга (вывода на экран)
+        // Функция отрисовки карточек на экране
         function renderTasks() {
             const listContainer = document.getElementById('tasks-list');
             if (!listContainer) return;
-            
             listContainer.innerHTML = '';
 
             tasks.forEach(task => {
@@ -154,66 +146,24 @@
                     <div class="task-desc">${task.desc}</div>
                     <div class="task-footer">
                         <div class="task-price">${task.price}</div>
-                        <button class="btn-take" id="btn-${task.id}" onclick="takeTask(${task.id})">TAKE ORDER</button>
+                        <button class="btn-take" onclick="takeTask(${task.id})">TAKE ORDER</button>
                     </div>
                 `;
                 listContainer.appendChild(card);
             });
         }
 
-        // Функция нажатия кнопки }
-                async function takeTask(id) {
-            const currentTask = tasks.find(t => t.id === id);
-            
+        // Функция клика по кнопке "TAKE ORDER"
+        function takeTask(id) {
             if (window.Telegram && window.Telegram.WebApp) {
-                const tg = window.Telegram.WebApp;
-                
-                // Вызываем виброотклик на телефоне
-                tg.HapticFeedback.notificationOccurred('success');
-                
-                // 🚀 ВЫСТАВЛЯЕМ ЧЕК ЧЕРЕЗ ОФИЦИАЛЬНУЮ ИНЛАЙН-ССЫЛКУ TELEGRAM STARS
-                // Бот сгенерирует ссылку, и мы откроем её прямо внутри приложения!
-                try {
-                    // Telegram Mini Apps автоматически передает initData для авторизации
-                    // Чтобы открыть счет, мы отправляем запрос к боту
-                    // Для примера откроем стандартное окно инвойса Телеграма:
-                    
-                    // Составляем правильный запрос
-                    tg.sendData(`pay_${id}`);
-                    
-                    // Если Mini App открыт с инлайн кнопки, sendData не сработает, 
-                    // поэтому для инлайн-кнопок мы делаем прямую подсказку пользователю:
-                    alert(`Запрос на оплату "${currentTask.title}" отправлен в чат бота! Закройте приложение и нажмите кнопку "Оплатить"`);
-                    tg.close();
-                    
-                } catch (error) {
-                    alert("Ошибка платежа: " + error);
-                }
+                // Передаем боту строку, например: pay_1
+                window.Telegram.WebApp.sendData(`pay_${id}`);
+                window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
+                window.Telegram.WebApp.close();
             }
         }
 
-
-            
-            // Находим данные о заказе по его id
-            const currentTask = tasks.find(t => t.id === id);
-            
-            btn.innerText = 'IN PROGRESS';
-            btn.className = 'btn-take taken';
-            btn.disabled = true;
-            
-            // 🚀 ГЛАВНАЯ ФИШКА: Отправляем боту текст о том, какой заказ взят
-            if (window.Telegram && window.Telegram.WebApp) {
-                const tg = window.Telegram.WebApp;
-                
-                // Передаем боту строку с названием заказа и ценой
-                tg.sendData(`Взят заказ: "${currentTask.title}" за ${currentTask.price}`);
-                
-                tg.HapticFeedback.notificationOccurred('success');
-                tg.close(); // Автоматически закрываем мини-приложение после выбора
-            }
-        }
-
-        // Запуск вывода при загрузке страницы
+        // Запуск отрисовки
         document.addEventListener('DOMContentLoaded', renderTasks);
     </script>
 </body>
