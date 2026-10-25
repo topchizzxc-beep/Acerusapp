@@ -1,7 +1,7 @@
 import os
 import asyncio
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command  # Импорты команд вместе вверху
 from aiogram.client.default import DefaultBotProperties
 from aiogram.types import LabeledPrice, PreCheckoutQuery, SuccessfulPayment
 from aiohttp import web  # Импортируем веб-сервер для Render
@@ -148,7 +148,11 @@ async def process_successful_payment(message: types.Message):
 async def back_to_main(callback: types.CallbackQuery):
     text, reply_markup = get_start_data(callback.from_user.first_name)
     
-    await callback.message.delete()
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
+        
     try:
         photo = types.FSInputFile("about.jpg")
         await callback.message.answer_photo(photo=photo, caption=text, reply_markup=reply_markup)
@@ -184,14 +188,7 @@ async def press_software(callback: types.CallbackQuery):
     await callback.answer()
 
 
-# ================= ВЕБ-СЕРВЕР ДЛЯ RENDER (ЗАГЛУШКА) =================
-
-async def handle(request):
-    return web.Response(text="Бот ACERUS IT запущен и успешно работает в облаке Render!")
-
-#================== ВОЗВРАТ СРЕДСТВ =================
-
-from aiogram.filters import Command # Не забудь проверить, импортирован ли Command вверху файла
+# ================== ВОЗВРАТ СРЕДСТВ (REFUND) =================
 
 # 1. ОБЯЗАТЕЛЬНАЯ КОМАНДА ДЛЯ ПОДДЕРЖКИ ПЛАТЕЖЕЙ
 @dp.message(Command("paysupport"))
@@ -206,25 +203,24 @@ async def cmd_paysupport(message: types.Message):
     await message.answer(text)
 
 
-# 2. ХЕНДЛЕР АВТОМАТИЧЕСКОГО ВОЗВРАТА ЗВЁЗД ПО ID ПЛАТЕЖА
+# 2. ХЕНДЛЕР АВТОМАТИЧЕСКОГО ВОЗВРАТА ЗВЁЗД
 @dp.message(Command("refund"))
 async def cmd_refund(message: types.Message, bot: Bot):
-    # Вытаскиваем ID платежа, который пользователь ввел после команды /refund
     args = message.text.split()
     
     if len(args) < 2:
         await message.answer(
             "❌ <b>Ошибка!</b> Вы не указали ID платежа.\n"
-            "Пример команды: <code>/refund 523764829384</code>\n\n"
-            "Найти ID транзакции можно в настройках Telegram, в разделе истории вашего баланса Stars."
+            "Пример команды: <code>/refund 523764829384</code>"
         )
         return
 
-    charge_id = args[1] # Получаем сам ID платежа из текста сообщения
+    # Очищаем ID от возможных пробелов по краям (исправлено)
+    charge_id = args[1].strip()
     user_id = message.from_user.id
 
     try:
-        # Вызываем официальный метод Telegram Bot API для возврата звезд
+        # Вызываем официальный метод Telegram Stars API
         await bot.refund_star_payment(
             user_id=user_id,
             telegram_payment_charge_id=charge_id
@@ -232,49 +228,34 @@ async def cmd_refund(message: types.Message, bot: Bot):
         
         await message.answer(
             f"✅ <b>Возврат успешно выполнен!</b>\n\n"
-            f"Telegram Stars за транзакцию <code>{charge_id}</code> отправлены обратно на ваш баланс. "
-            f"Они зачислятся в течение нескольких секунд!"
+            f"Telegram Stars за транзакцию <code>{charge_id}</code> возвращены на ваш баланс."
         )
         
-        # Уведомляем тебя в ЛС, что кто-то сделал возврат
+        # Уведомление админу в ЛС
         await bot.send_message(
             chat_id=ADMIN_ID,
             text=f"⚠️ <b>Оформлен возврат звёзд!</b>\n\n"
                  f"👤 Пользователь: ID <code>{user_id}</code>\n"
-                 f"📄 ID транзакции: <code>{charge_id}</code>\n"
-                 f"💸 Звёзды успешно списаны с баланса бота и вернулись клиенту."
+                 f"📄 ID транзакции: <code>{charge_id}</code>"
         )
         
     except Exception as e:
-        # Если ID платежа неверный или звезды уже были возвращены ранее
         print(f"Ошибка выполнения рефанда: {e}")
         await message.answer(
             "❌ <b>Не удалось выполнить возврат.</b>\n\n"
-            "Проверьте, правильно ли указан ID платежа. "
-            "Возврат работает только для транзакций, совершенных в этом боте, и только один раз. "
-            "Если ошибка повторится, напишите администратору: @Casino_lucker"
+            "<b>Возможные причины:</b>\n"
+            "1. Вы использовали тестовую оплату (Telegram запрещает возврат тестовых звёзд).\n"
+            "2. Указан неверный ID транзакции.\n"
+            "3. Этот платёж был совершён в другом боте."
         )
+
+
+# ================= ВЕБ-СЕРВЕР ДЛЯ RENDER (ЗАГЛУШКА) =================
+
+async def handle(request):
+    return web.Response(text="Бот ACERUS IT запущен и успешно работает в облаке Render!")
+
 
 # ================= ЗАПУСК БОТА И СЕРВЕРА =================
 
 async def main():
-    print("Бот успешно запущен и готов к приему платежей Stars!")
-    
-    # Настройка мини-сайта для прослушивания портов Render
-    app = web.Application()
-    app.router.add_get('/', handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    
-    # Считываем порт, который выдает Render (по умолчанию 8080)
-    port = int(os.getenv("PORT", 8080)) 
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    
-    await site.start() 
-    print(f"Веб-сервер слушает порт: {port}")
-
-    # Запуск поллинга Telegram-бота
-    await dp.start_polling(bot)
-
-if __name__ == '__main__':
-    asyncio.run(main())
