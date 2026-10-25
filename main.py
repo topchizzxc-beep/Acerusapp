@@ -189,6 +189,71 @@ async def press_software(callback: types.CallbackQuery):
 async def handle(request):
     return web.Response(text="Бот ACERUS IT запущен и успешно работает в облаке Render!")
 
+#================== ВОЗВРАТ СРЕДСТВ =================
+
+from aiogram.filters import Command # Не забудь проверить, импортирован ли Command вверху файла
+
+# 1. ОБЯЗАТЕЛЬНАЯ КОМАНДА ДЛЯ ПОДДЕРЖКИ ПЛАТЕЖЕЙ
+@dp.message(Command("paysupport"))
+async def cmd_paysupport(message: types.Message):
+    text = (
+        "ℹ️ <b>Поддержка платежей ACERUS IT</b>\n\n"
+        "Если вы хотите вернуть свои Telegram Stars за ошибочный платеж, "
+        "вы можете сделать это автоматически прямо сейчас.\n\n"
+        "Для этого отправьте боту команду: <code>/refund ID_ПЛАТЕЖА</code>\n\n"
+        "<i>(ID платежа можно скопировать в Telegram: Настройки ➡️ Telegram Stars ➡️ История транзакций).</i>"
+    )
+    await message.answer(text)
+
+
+# 2. ХЕНДЛЕР АВТОМАТИЧЕСКОГО ВОЗВРАТА ЗВЁЗД ПО ID ПЛАТЕЖА
+@dp.message(Command("refund"))
+async def cmd_refund(message: types.Message, bot: Bot):
+    # Вытаскиваем ID платежа, который пользователь ввел после команды /refund
+    args = message.text.split()
+    
+    if len(args) < 2:
+        await message.answer(
+            "❌ <b>Ошибка!</b> Вы не указали ID платежа.\n"
+            "Пример команды: <code>/refund 523764829384</code>\n\n"
+            "Найти ID транзакции можно в настройках Telegram, в разделе истории вашего баланса Stars."
+        )
+        return
+
+    charge_id = args[1] # Получаем сам ID платежа из текста сообщения
+    user_id = message.from_user.id
+
+    try:
+        # Вызываем официальный метод Telegram Bot API для возврата звезд
+        await bot.refund_star_payment(
+            user_id=user_id,
+            telegram_payment_charge_id=charge_id
+        )
+        
+        await message.answer(
+            f"✅ <b>Возврат успешно выполнен!</b>\n\n"
+            f"Telegram Stars за транзакцию <code>{charge_id}</code> отправлены обратно на ваш баланс. "
+            f"Они зачислятся в течение нескольких секунд!"
+        )
+        
+        # Уведомляем тебя в ЛС, что кто-то сделал возврат
+        await bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"⚠️ <b>Оформлен возврат звёзд!</b>\n\n"
+                 f"👤 Пользователь: ID <code>{user_id}</code>\n"
+                 f"📄 ID транзакции: <code>{charge_id}</code>\n"
+                 f"💸 Звёзды успешно списаны с баланса бота и вернулись клиенту."
+        )
+        
+    except Exception as e:
+        # Если ID платежа неверный или звезды уже были возвращены ранее
+        print(f"Ошибка выполнения рефанда: {e}")
+        await message.answer(
+            "❌ <b>Не удалось выполнить возврат.</b>\n\n"
+            "Проверьте, правильно ли указан ID платежа. "
+            "Возврат работает только для транзакций, совершенных в этом боте, и только один раз. "
+            "Если ошибка повторится, напишите администратору: @Casino_lucker"
+        )
 
 # ================= ЗАПУСК БОТА И СЕРВЕРА =================
 
