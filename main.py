@@ -4,7 +4,6 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart, Command
 from aiogram.client.default import DefaultBotProperties
 from aiogram.types import LabeledPrice, PreCheckoutQuery, SuccessfulPayment
-from aiohttp import web
 
 # Данные вписаны напрямую в код для быстрого запуска
 BOT_TOKEN = '8291306164:AAHOKPsqcOJNiMiVoQBVKhh54PMSYyCNHys'
@@ -77,7 +76,10 @@ async def process_buy_service(callback: types.CallbackQuery):
     service_key = callback.data
     service_data = SERVICES[service_key]
     
-    await callback.message.delete()
+    try:
+        await callback.message.delete()
+    except Exception:
+        pass
     
     await callback.message.answer_invoice(
         title=service_data['title'],
@@ -164,7 +166,10 @@ async def press_about(callback: types.CallbackQuery):
     try:
         await callback.message.edit_caption(caption=text, reply_markup=get_back_keyboard())
     except Exception:
-        await callback.message.edit_text(text=text, reply_markup=get_back_keyboard())
+        try:
+            await callback.message.edit_text(text=text, reply_markup=get_back_keyboard())
+        except Exception:
+            await callback.message.answer(text=text, reply_markup=get_back_keyboard())
     await callback.answer()
 
 
@@ -178,7 +183,10 @@ async def press_software(callback: types.CallbackQuery):
     try:
         await callback.message.edit_caption(caption=text, reply_markup=get_back_keyboard())
     except Exception:
-        await callback.message.edit_text(text=text, reply_markup=get_back_keyboard())
+        try:
+            await callback.message.edit_text(text=text, reply_markup=get_back_keyboard())
+        except Exception:
+            await callback.message.answer(text=text, reply_markup=get_back_keyboard())
     await callback.answer()
 
 
@@ -207,61 +215,49 @@ async def cmd_refund(message: types.Message, bot: Bot):
         )
         return
 
+    # ИСПРАВЛЕНО: берем конкретно элемент списка по индексу 1 и очищаем его от пробелов
     charge_id = args[1].strip()
     user_id = message.from_user.id
 
     try:
+        # Выполняем возврат Telegram Stars пользователю через Telegram API
         await bot.refund_star_payment(
             user_id=user_id,
             telegram_payment_charge_id=charge_id
         )
         
         await message.answer(
-            f"✅ <b>Возврат успешно выполнен!</b>\n\n"
-            f"Telegram Stars за транзакцию <code>{charge_id}</code> возвращены на ваш баланс."
+            f"✅ <b>Успешный возврат!</b>\n\n"
+            f"Платеж <code>{charge_id}</code> успешно аннулирован. "
+            f"Telegram Stars возвращены на ваш баланс."
         )
         
-        await bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"⚠️ <b>Оформлен возврат звёзд!</b>\n\n"
-                 f"👤 Пользователь: ID <code>{user_id}</code>\n"
-                 f"📄 ID транзакции: <code>{charge_id}</code>"
-        )
-        
+        # Уведомляем администратора о том, что был оформлен возврат средств
+        try:
+            await bot.send_message(
+                chat_id=ADMIN_ID,
+                text=f"↩️ <b>ОФОРМЛЕН ВОЗВРАТ ЗВЕЗД</b>\n\n"
+                     f"👤 <b>Пользователь:</b> ID {user_id}\n"
+                     f"📄 <b>ID транзакции:</b> <code>{charge_id}</code>"
+            )
+        except Exception as admin_err:
+            print(f"Не удалось отправить уведомление админу о возврате: {admin_err}")
+            
     except Exception as e:
-        print(f"Ошибка выполнения рефанда: {e}")
         await message.answer(
-            "❌ <b>Не удалось выполнить возврат.</b>\n\n"
-            "<b>Возможные причины:</b>\n"
-            "1. Вы использовали тестовую оплату (Telegram запрещает возврат тестовых звёзд).\n"
-            "2. Указан неверный ID транзакции.\n"
-            "3. Этот платёж был совершён в другом боте."
+            f"❌ <b>Ошибка возврата!</b>\n\n"
+            f"Не удалось вернуть средства. Проверьте правильность ID платежа. "
+            f"Обратите внимание, что оформить возврат можно только в течение 24 дней с момента проведения оплаты.\n\n"
+            f"<i>Технический текст ошибки: {e}</i>"
         )
 
 
-# ================= ВЕБ-СЕРВЕР ДЛЯ RENDER (ЗАГЛУШКА) =================
-
-async def handle(request):
-    return web.Response(text="Бот ACERUS IT запущен и успешно работает в облаке Render!")
-
-
-# ================= ЗАПУСК БОТА И СЕРВЕРА =================
+# ================== ЗАПУСК БОТА ==================
 
 async def main():
-    print("Бот успешно запущен и готов к приему платежей Stars!")
-    
-    app = web.Application()
-    app.router.add_get('/', handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    
-    port = int(os.getenv("PORT", 8080)) 
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    
-    await site.start() 
-    print(f"Веб-сервер слушает порт: {port}")
-
+    print("Бот успешно запущен в режиме Polling и готов к работе!")
     await dp.start_polling(bot)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     asyncio.run(main())
