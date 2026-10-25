@@ -6,7 +6,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.types import LabeledPrice, PreCheckoutQuery, SuccessfulPayment
 
 # Данные вписаны напрямую в код для быстрого запуска
-BOT_TOKEN = '8291306164:AAHOKPsqcOJNiMiVoQBVKhh54PMSYyCNHys'
+BOT_TOKEN = '8291306164:AAEyPTn8mrl3jsxwUWHUeAnmwwplNCj_ZcA'
 ADMIN_ID = 7386449043 
 
 # Инициализация бота
