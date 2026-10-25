@@ -1,10 +1,10 @@
 import os
 import asyncio
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import CommandStart, Command  # Импорты команд вместе вверху
+from aiogram.filters import CommandStart, Command
 from aiogram.client.default import DefaultBotProperties
 from aiogram.types import LabeledPrice, PreCheckoutQuery, SuccessfulPayment
-from aiohttp import web  # Импортируем веб-сервер для Render
+from aiohttp import web
 
 # Данные вписаны напрямую в код для быстрого запуска
 BOT_TOKEN = '8291306164:AAHOKPsqcOJNiMiVoQBVKhh54PMSYyCNHys'
@@ -36,7 +36,7 @@ def get_main_keyboard():
         [types.InlineKeyboardButton(text='📝 ТЕКСТ ЧЕРЕЗ ИИ — 100 ⭐️', callback_data='buy_text')],
         [types.InlineKeyboardButton(text='ℹ️ Обо мне', callback_data='press_about'),
          types.InlineKeyboardButton(text='💻 Мой софт', callback_data='press_software')],
-        [types.InlineKeyboardButton(text='📞 Написать мне в ЛС', url='https://t.me/Casino_lucker')]
+        [types.InlineKeyboardButton(text='📞 Написать мне в ЛС', url='https://t.me')]
     ]
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
@@ -72,16 +72,13 @@ async def cmd_start(message: types.Message):
 
 # ================= ОБРАБОТКА ОПЛАТЫ (TELEGRAM STARS) =================
 
-# 1. ОТПРАВКА ИНВОЙСА ПРИ НАЖАТИИ НА КНОПКУ КУПИТЬ
 @dp.callback_query(F.data.in_(SERVICES.keys()))
 async def process_buy_service(callback: types.CallbackQuery):
     service_key = callback.data
     service_data = SERVICES[service_key]
     
-    # Удаляем старое меню, чтобы не забивать чат
     await callback.message.delete()
     
-    # Отправляем ЧИСТЫЙ инвойс без принудительного reply_markup
     await callback.message.answer_invoice(
         title=service_data['title'],
         description=f"Оплата услуги '{service_data['title']}' через Telegram Stars. Безопасная транзакция.",
@@ -93,7 +90,6 @@ async def process_buy_service(callback: types.CallbackQuery):
         ]
     )
     
-    # Отправляем кнопку "Назад" отдельным сообщением прямо под ним
     await callback.message.answer(
         text="Вы можете оплатить услугу выше или вернуться назад:",
         reply_markup=get_back_keyboard()
@@ -101,7 +97,6 @@ async def process_buy_service(callback: types.CallbackQuery):
     await callback.answer()
 
 
-# 2. ПОДТВЕРЖДЕНИЕ ПЛАТЕЖА (PreCheckoutQuery)
 @dp.pre_checkout_query()
 async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
     try:
@@ -110,7 +105,6 @@ async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
         print(f"Ошибка подтверждения платежа: {e}")
 
 
-# 3. ФИКСАЦИЯ УСПЕШНОГО ПЛАТЕЖА + УВЕДОМЛЕНИЕ АДМИНА
 @dp.message(F.successful_payment)
 async def process_successful_payment(message: types.Message):
     payment_info: SuccessfulPayment = message.successful_payment
@@ -190,7 +184,6 @@ async def press_software(callback: types.CallbackQuery):
 
 # ================== ВОЗВРАТ СРЕДСТВ (REFUND) =================
 
-# 1. ОБЯЗАТЕЛЬНАЯ КОМАНДА ДЛЯ ПОДДЕРЖКИ ПЛАТЕЖЕЙ
 @dp.message(Command("paysupport"))
 async def cmd_paysupport(message: types.Message):
     text = (
@@ -203,7 +196,6 @@ async def cmd_paysupport(message: types.Message):
     await message.answer(text)
 
 
-# 2. ХЕНДЛЕР АВТОМАТИЧЕСКОГО ВОЗВРАТА ЗВЁЗД
 @dp.message(Command("refund"))
 async def cmd_refund(message: types.Message, bot: Bot):
     args = message.text.split()
@@ -215,12 +207,10 @@ async def cmd_refund(message: types.Message, bot: Bot):
         )
         return
 
-    # Очищаем ID от возможных пробелов по краям (исправлено)
     charge_id = args[1].strip()
     user_id = message.from_user.id
 
     try:
-        # Вызываем официальный метод Telegram Stars API
         await bot.refund_star_payment(
             user_id=user_id,
             telegram_payment_charge_id=charge_id
@@ -231,7 +221,6 @@ async def cmd_refund(message: types.Message, bot: Bot):
             f"Telegram Stars за транзакцию <code>{charge_id}</code> возвращены на ваш баланс."
         )
         
-        # Уведомление админу в ЛС
         await bot.send_message(
             chat_id=ADMIN_ID,
             text=f"⚠️ <b>Оформлен возврат звёзд!</b>\n\n"
@@ -259,3 +248,20 @@ async def handle(request):
 # ================= ЗАПУСК БОТА И СЕРВЕРА =================
 
 async def main():
+    print("Бот успешно запущен и готов к приему платежей Stars!")
+    
+    app = web.Application()
+    app.router.add_get('/', handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    port = int(os.getenv("PORT", 8080)) 
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    
+    await site.start() 
+    print(f"Веб-сервер слушает порт: {port}")
+
+    await dp.start_polling(bot)
+
+if __name__ == '__main__':
+    asyncio.run(main())
