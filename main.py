@@ -35,7 +35,7 @@ def get_main_keyboard():
         [types.InlineKeyboardButton(text='📝 ТЕКСТ ЧЕРЕЗ ИИ — 100 ⭐️', callback_data='buy_text')],
         [types.InlineKeyboardButton(text='ℹ️ Обо мне', callback_data='press_about'),
          types.InlineKeyboardButton(text='💻 Мой софт', callback_data='press_software')],
-        [types.InlineKeyboardButton(text='📞 Написать мне в ЛС', url='https://t.me')]
+        [types.InlineKeyboardButton(text='📞 Написать мне в ЛС', url='https://t.me/Casino_lucker')]
     ]
     return types.InlineKeyboardMarkup(inline_keyboard=buttons)
 
